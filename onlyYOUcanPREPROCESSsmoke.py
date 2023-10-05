@@ -4,11 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 #%matplotlib inline
 sns.set(style = "darkgrid")
-from sklearn import neighbors, metrics
-from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
 
 from sklearn.impute import SimpleImputer
 from sklearn.impute import KNNImputer
@@ -17,28 +13,50 @@ from sklearn.impute import IterativeImputer
 
 
 
-
-
 # This lil' guy right here will handle all of our preprocessing!
 def cleanAndEncode(df):
+    
+    print("Cleaning the dataset...")
     
     # Drops uneeded training data
     columns_to_drop = ['fire_number', 'fire_name', 'industry_identifier_desc', 'discovered_size', 'fire_id.1']
     df = colDropper(df, columns_to_drop)
+    print("Dropped columns!")
     
+    ## Old date encoder ##
     # Date columns to encode
     date_columns = ["fire_start_date", "discovered_date", "reported_date", "dispatch_date", "start_for_fire_date", "assessment_datetime", "ia_arrival_at_fire_date", "fire_fighting_start_date", "first_bucket_drop_date", "ex_fs_date"]
-    df = dateEncoder(df, date_columns)
+    simple_clean_df = df.copy(deep=True)
+    simple_clean_df = dateEncoder(simple_clean_df, date_columns)
     
+    ## Old catagorical encoder ##
     # List of catagorical data to be encoded
     categorical_data = [
                 "fire_origin", "general_cause_desc", "responsible_group_desc", "activity_class", "true_cause", "det_agent", "det_agent_type",
                 "dispatched_resource", "assessment_resource", "fire_type", "fire_position_on_slope", "weather_conditions_over_fire", "wind_direction",
                 "fuel_type", "initial_action_by", "ia_access", "bucketing_on_fire"
                 ]
-    df = catagoricalEncoding(df, categorical_data)
-
+    simple_clean_df = catagoricalEncoding(simple_clean_df, categorical_data)
+    # Simple Imputer: Predicts missing values based on other values in the same column
+    # strategy has the following options: mean, median, mode, most_frequent, constant.    
+    strategy = "most_frequent"  # Best for catagorical encoding
+    missing_values = np.nan     # If strategy = "constant", change to desired constant value (like 0). Else, do not change!
+    output_format = "pandas"    # return type of output
+    simple_clean_df = simpleImputing(simple_clean_df, strategy, missing_values, output_format)
+    simple_clean_df.to_csv("simple_clean.csv")
+    print("Simple clean done!")
     
+    
+    categorical_data = ["fire_origin", "general_cause_desc", "responsible_group_desc", "activity_class", "true_cause", "det_agent", "det_agent_type",
+                      "dispatched_resource", "assessment_resource", "fire_type", "fire_position_on_slope", "weather_conditions_over_fire", "wind_direction",
+                      "fuel_type", "initial_action_by", "ia_access", "bucketing_on_fire"]
+
+    dates = ['fire_start_date', 'discovered_date', 'reported_date', 'dispatch_date', 'start_for_fire_date', 'assessment_datetime', 'ia_arrival_at_fire_date', 'fire_fighting_start_date', 'first_bucket_drop_date', 'ex_fs_date']
+    df = remove_bad_dates(df, dates)
+    print("Removing date dates... Nobody likes those")
+    df = improvedCategoricalEncoding(df, categorical_data, dates)
+    
+
     
     
     # Simple Imputer: Predicts missing values based on other values in the same column
@@ -89,11 +107,28 @@ def catagoricalEncoding(df, categorical):
     
     return df
 
-# Real basic date encoder. Still need to add David's fancy version
+
+# Real basic date encoder
 def dateEncoder(df, columns):
     for col in columns:
         df[col] = pd.to_datetime(df[col], dayfirst=True, format='mixed').astype('int64') // 10**9
     return df
+
+
+# Function to check if a date is valid
+def is_valid_date(date_string):
+    try:
+        date = pd.to_datetime(date_string, yearfirst=True)
+        if date is not None and date < pd.to_datetime('2000-01-01'):
+          return False
+        return True
+    except ValueError:
+        return False
+
+def remove_bad_dates(df, dates):
+  for date in dates:
+    df[date] = df[date].apply(lambda x: x if is_valid_date(x) else np.nan)
+  return df
 
 
 def datetime_to_sin(date: str, data) -> float:
@@ -102,14 +137,34 @@ def datetime_to_sin(date: str, data) -> float:
   data[date] = np.sin(2 * np.pi * temp / 365)
   
   
-def dataTimeContinuum(df):
-    
-  # deal with date encoding
-  dates = ['fire_start_date', 'discovered_date', 'reported_date', 'dispatch_date', 'start_for_fire_date', 'assessment_datetime', 'ia_arrival_at_fire_date', 'fire_fighting_start_date', 'first_bucket_drop_date', 'ex_fs_date']
-  for date in dates:
-    datetime_to_sin(date, df)
+def improvedCategoricalEncoding(df, catagorical_data, date_data):
+    #This type of encoding should be used for data that does not have an order
+    ohe = OneHotEncoder(sparse_output=False)
+    categorical_data = ["fire_origin", "general_cause_desc", "responsible_group_desc", "activity_class", "true_cause", "det_agent", "det_agent_type",
+                      "dispatched_resource", "assessment_resource", "fire_type", "fire_position_on_slope", "weather_conditions_over_fire", "wind_direction",
+                      "fuel_type", "initial_action_by", "ia_access", "bucketing_on_fire"]
 
-  return df
+    # categorical_data = [item for item in categorical_data if item not in columns_with_null]
+
+
+    df = pd.get_dummies(df, columns=categorical_data, prefix=categorical_data)
+    print("One hot encoded!")
+    # deal with date encoding
+    dates = ['fire_start_date', 'discovered_date', 'reported_date', 'dispatch_date', 'start_for_fire_date', 'assessment_datetime', 'ia_arrival_at_fire_date', 'fire_fighting_start_date', 'first_bucket_drop_date', 'ex_fs_date']
+    for date in dates:
+        datetime_to_sin(date, df)
+    print("Dates are transformed!")
+    
+    df.to_csv("date_encoded.csv")
+    
+    #This type of encoding can be used for data that can be ordered,
+    #when initializing oe provide a list in order of columns of the order of the data
+    oe = OrdinalEncoder(categories=[['A', 'B', 'C', 'D', 'E']])
+    oe.fit_transform(df[["size_class"]])[2] #here you list each of the columns in the same order you listed the lists of data above
+    print("Ordinally encoded!")
+
+
+    return df
 
 
 # It's simple, and it works. real good

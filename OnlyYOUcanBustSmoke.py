@@ -6,6 +6,7 @@ import seaborn as sns
 sns.set(style = "darkgrid")
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.svm import SVC
 from sklearn import neighbors, metrics
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder, OrdinalEncoder
@@ -19,12 +20,18 @@ def main():
     df = pd.read_csv('messy_wildfire_train.csv')
     #df_test = pd.read_csv('wildfire_test.csv')
     
-    models = PreProcess.cleanAndEncode(df)
+    dataframes = PreProcess.cleanAndEncode(df)
+    
+    dataframes[0].to_csv("simple_imputed.csv")
+    dataframes[1].to_csv("iterative_imputed.csv")
+    dataframes[2].to_csv("knn_imputed.csv")
     
     # Creates the basis for our models based on the type of imputing used
-    simple_model = MLModel("simple", models[0])
-    iterative_model = MLModel("iterative", models[1])
-    knn_model = MLModel("knn", models[2])
+    simple_model = MLModel("simple", dataframes[0])
+    iterative_model = MLModel("iterative", dataframes[1])
+    knn_model = MLModel("knn", dataframes[2])
+    
+    models = [simple_model, iterative_model, knn_model]
     
     for model in models:
         print()
