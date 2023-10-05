@@ -55,8 +55,12 @@ def cleanAndEncode(df):
     df = remove_bad_dates(df, dates)
     print("Removing date dates... Nobody likes those")
     df = improvedCategoricalEncoding(df, categorical_data, dates)
+    df.to_csv('encoded_dataset.csv')
     
-
+    return df
+    
+def imputeMissingValues(df):
+    
     
     
     # Simple Imputer: Predicts missing values based on other values in the same column
@@ -155,7 +159,7 @@ def improvedCategoricalEncoding(df, catagorical_data, date_data):
         datetime_to_sin(date, df)
     print("Dates are transformed!")
     
-    df.to_csv("date_encoded.csv")
+    
     
     #This type of encoding can be used for data that can be ordered,
     #when initializing oe provide a list in order of columns of the order of the data

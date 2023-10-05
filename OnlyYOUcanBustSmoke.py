@@ -17,10 +17,15 @@ import onlyYOUcanPREPROCESSsmoke as PreProcess
 
 
 def main():
-    df = pd.read_csv('messy_wildfire_train.csv')
+    #df = pd.read_csv('messy_wildfire_train.csv')
     #df_test = pd.read_csv('wildfire_test.csv')
     
-    dataframes = PreProcess.cleanAndEncode(df)
+    df = pd.read_csv('date_encoded.csv')
+    
+    #df = PreProcess.cleanAndEncode(df)
+    dataframes = PreProcess.imputeMissingValues(df)
+    
+    #dataframes = PreProcess.cleanAndEncode(df)
     
     dataframes[0].to_csv("simple_imputed.csv")
     dataframes[1].to_csv("iterative_imputed.csv")
@@ -90,7 +95,7 @@ class MLModel:
     
     # Where are my nearest neighbours?!
     def findKNN(self):
-        knn = neighbors.KNeighborsClassifier(n_neighbors=20, weights="uniform")
+        knn = neighbors.KNeighborsClassifier(n_neighbors=20, weights="distance")
         knn.fit(self.X_train, self.y_train) #Thats it, thats the training, all there is to it, you have a model now
         self.knn_pred = knn.predict(self.X_valid) #.predict() takes our X_test and returns an array of predicted labels
         self.knn_acc = metrics.accuracy_score(self.y_valid, self.knn_pred) #.accuracy_score() returns a number reflecting how accurately our model predicted our testing data
@@ -122,7 +127,7 @@ class MLModel:
     # You must be this tall ------- to divide the data.
     # (It was a stretch, I know. Shut up.)
     def findCLF(self):
-        clf = SVC()
+        clf = SVC(gamma='auto')
         clf.fit(self.X_train, self.y_train)
         self.clf_pred = clf.predict(self.X_valid)
         self.clf_acc = metrics.accuracy_score(self.y_valid, self.clf_pred)
